@@ -13,24 +13,6 @@ Direct link: https://doi.org/10.1186/s13072-019-0287-4
 
 A web interface for SEACR analysis can be found at https://seacr.fredhutch.org
 
-## Recent changes
-
-### v1.3
-
-- Fixed a bug in which the bedgraph line thresholding added in v1.2 was failing for some datasets.
-- Added a check to filter out any input bedgraph lines containing zero signal.
-
-### v1.2
-
-- Fixed a bug in lines 166 and 168 in which misplaced brackets caused the misreporting of the max signal region terminal coordinate for merged signal blocks.
-- Added a counter to keep track of the number of component bedgraph lines that compose each signal block, and a function to calculate the minimum threshold of lines per signal block at which there is a smaller percentage of target signal blocks remaining than control. This is meant to be used as a filter for signal blocks that pass the total signal threshold despite being composed of very few bedgraph lines, which are unlikely to be true peaks.
-- Changed how the dataframe for density plotting is truncated (previously a hard-coded 90% cutoff): a dataframe of list quantile (i.e. line #/max line#) vs. value quantile (i.e. value/max value) is derived, and the threshold is selected by finding the dataframe pair for which the orthogonal distance below the line defined by (0,0);(1,1) is maximized.
-
-### v1.1
-- Changed "union" and "AUC" modes to "relaxed" and "stringent" modes, respectively.
-- Removed maximum signal threshold from "relaxed" mode and replaced it with an alternate total signal threshold that uses the point halfway between the knee and the peak of the total signal curve as described in the manuscript text. This change improves performance at high read depth.
-- Implemented alternate threshold test that searches for any thresholds that come within 95% of the optimal threshold. This change avoids spurious thresholds that are overselective in some datasets.
-
 ## Usage: 
 
 	bash SEACR_1.3.sh experimental bedgraph [control bedgraph | numeric threshold] ["norm" | "non"] ["relaxed" | "stringent"] output prefix

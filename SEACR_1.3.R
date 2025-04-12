@@ -105,11 +105,15 @@ if(!is.na(argsL$ctrl)){
 		exptest<-density(expvec[expvec <= expvalue]) ## New for SEACR_1.1
 		constant<-(exptest$x[exptest$y==max(exptest$y)])/(ctrltest$x[ctrltest$y==max(ctrltest$y)])
 		ctrlvec<-ctrlvec*constant
-	} ## Calculate total signal and max signal thresholds
+	} 
 
+
+  ## Calculate total signal and max signal thresholds
 
 	both<-c(expvec,ctrlvec)
-	pctremain<-function(x) (length(expvec)-(ecdf(expvec)(x)*length(expvec)))/(length(both)-(ecdf(both)(x)*length(both)))
+	pctremain<-function(x) (length(expvec)-(ecdf(expvec)(x)*length(expvec)))/
+                         (length(both)-(ecdf(both)(x)*length(both)))
+
 	x<-sort(unique(both)) ## New for SEACR_1.1
 	x0<-x[which(na.omit(pctremain(x[pctremain(x) < 1])) == max(na.omit(pctremain(x[pctremain(x) < 1]))))]  ## New for SEACR_1.1
 	z<-x[x <= x0[1]]	## New for SEACR_1.1
@@ -120,6 +124,9 @@ if(!is.na(argsL$ctrl)){
 	}else{  ## Added 7/15/19 to avoid omitting z when x0==z2
 		z0<-x0  ## Added 7/15/19 to avoid omitting z when x0==z2
 	}  ## Added 7/15/19 to avoid omitting z when x0==z2
+
+
+
 	
 	## The following code segment was added to avoid spurious high thresholding when the peak of a lower threshold is within 95% of the peak of the maximum threshold
 	
@@ -133,10 +140,14 @@ if(!is.na(argsL$ctrl)){
 #		print(output)
 		i<-i+1
 	}
+
+
 	a<-frame$thresh[frame$diff != 0 & frame$diff < quantile(frame$diff, test3)]
 	a0<-a[which(na.omit(pctremain(a[pctremain(a) < 1])) == max(na.omit(pctremain(a[pctremain(a) <  1]))))]
 	b<-a[a <= a0[1]]
 	b2<-b[abs(((pctremain(a0)+min(pctremain(b)))/2)-pctremain(b))==min(abs(((pctremain(a0)+min(pctremain(b)))/2)-pctremain(b)))]
+
+
 	if(a0[1]!=b2[1]){  ## Added 7/15/19 to avoid omitting b when a0==b2
 		b<-b[b > b2[1]]
 		b0<-b[abs(b-(max(b)-((1/2)*(max(b)-min(b)))))==min(abs(b-(max(b)-((1/2)*(max(b)-min(b))))))]
@@ -147,15 +158,18 @@ if(!is.na(argsL$ctrl)){
 		x0<-a0
 		z0<-b0
 	}
+
+
 	both2<-c(expmax,ctrlmax)
 	d<-sort(unique(both2))
 	pctremain2<-function(x) 1-(ecdf(expmax)(x)-ecdf(ctrlmax)(x))
+
+
 	if(length(d[pctremain2(d) > 1]) > 0){
 		d0<-min(d[pctremain2(d) > 1])
 	}else{
 		d0<-1
 	}
-
 	invis <- gc(verbose=FALSE)
 	fdr<-c(1-pctremain(x0[1]), 1-pctremain(z0[1])) ## New for SEACR_1.1
 }else{ ## If 2nd field is numeric, calculate percentile threshold
