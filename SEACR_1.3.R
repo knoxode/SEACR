@@ -53,14 +53,7 @@ dist2d<-function(a,b,c){
     d<-det(m)/sqrt(sum(v1*v1))
 }
 
-dist2d_refactored <- function(a,b,c){
-  v1<- 0 - 1; 
-  v2<- a - 0; 
-  m<-cbind(v1,v2); 
-  d<-det(m)/sqrt(sum(v1*v1))
-}
-
-density_plot_peak_calc <- (dataframe, vec){
+density_plot_peak_calc <- function(dataframe, vec){
   dataframe<-data.frame(count=seq(1,0,length=length(vec)), quant=sort(vec,decreasing=TRUE)/max(vec), value=sort(vec,decreasing=TRUE))
   dataframe$diff<-abs(dataframe$count-dataframe$quant)
   dataframe<-expframe[dataframe$diff > 0.9*max(dataframe$diff),]
