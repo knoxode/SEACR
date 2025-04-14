@@ -52,23 +52,26 @@ EOF
 fi
 
 
+#Generates random strings which will be used as placeholder names for temporary files.
+
 random_string=$(head /dev/urandom | LC_CTYPE=C tr -dc A-Za-z0-9 | head -c 13; echo '')
 random_string2=$(head /dev/urandom | LC_CTYPE=C tr -dc A-Za-z0-9 | head -c 13; echo '')
 
-
-#TODO: Check the function of exp
+#Allows for use of easier-to-remember names in place of $1,$2, etc from bash arguments
+exp=$1
+ctrl=$2
 norm=$3
 height=$4
 
 #Check if user has opted to forgo a control file.
-if [[ $2 =~ ^[0-9]?+([.][0-9]+)?$ ]] || [[ $2 =~ ^[0-9]([.][0-9]+) ]] || [[ $2 =~ ^([.][0-9]+) ]]
+if [[ $ctrl =~ ^[0-9]?+([.][0-9]+)?$ ]] || [[ $2 =~ ^[0-9]([.][0-9]+) ]] || [[ $2 =~ ^([.][0-9]+) ]]
 then
 	echo "Calling enriched regions without control file"
-elif [[ -f $2 ]]
+elif [[ -f $ctrl ]]
 then
 	echo "Calling enriched regions with control file"
 else
-	echo "$2 is not a number or a file"
+	echo "$ctrl is not a number or a file"
 	exit 1
 fi
 
@@ -162,23 +165,29 @@ generate_auc(){
               }
           }
       }
-  }
-  ' "$1"
-  cut -f 4,7 "$1".auc.bed > "$1".auc
+  }'
+  #Stream the output of awk into an auc.bed file
+  "$1" > "$2".auc.bed
+  #Stream the output of cut into a .auc file
+  cut -f 4,7 "$2".auc.bed > "$2".auc
 }
 
 #Generate AUC for the sample
 echo "Creating sample AUC file: $(date)"
-generate_auc "$random_string"
+generate_auc "$exp" "$random_string"
 
 #If control_file is provided, generate control AUC.
 if [[ -f $2 ]]
 then
   echo "Creating control AUC file: $(date)"
-  generate_auc "$random_string2"
+  generate_auc "$ctrl" "$random_string2"
 fi
 
-auc_comp(){
+#TODO: Remove after testing
+path="dirname $0"
+echo "$path"
+
+auc_compare(){
 	Rscript "$path"/SEACR_1.3.R --exp="$1".auc --ctrl="$2".auc --norm=yes --output="$1"
 }
 
@@ -189,14 +198,14 @@ echo "$path"
 if [[ -f $2 ]] && [[ $norm == "norm" ]]
 then
 	echo "Calculating threshold using normalized control: $(date)"
-  auc_comp "$random_string" "$random_string2"
+  auc_compare "$random_string" "$random_string2"
 elif [[ -f $2 ]]
 then
 	echo "Calculating threshold using non-normalized control: $(date)"
-  auc_comp "$random_string" "$random_string2"
+  auc_compare "$random_string" "$random_string2"
 else
 	echo "Using user-provided threshold: $(date)"
-  auc_comp "$random_string" "$2"
+  auc_compare "$random_string" "$ctrl"
 fi
 
 
@@ -219,7 +228,7 @@ else
   awk -v value="$thresh" -v value2="$thresh3" '$4 > value && $7 > value2 {print $0}' "$random_string".auc.bed | cut -f 1,2,3,4,5,6 > "$random_string".auc.threshold.bed
 fi
 
-if [[ -f $2 ]]
+if [[ -f $exp ]]
 then
 	if [[ $norm == "norm" ]] #If normalizing, multiply control bedgraph by normalization constant
 	then
