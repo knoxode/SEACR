@@ -103,6 +103,9 @@ echo "Creating experimental AUC file: $(date)"
 
 
 generate_auc(){
+  input_file="$1"
+  output_prefix="$2"
+
   awk '
   # Initialize the state variable
   BEGIN { 
@@ -165,11 +168,9 @@ generate_auc(){
               }
           }
       }
-  }'
-  #Stream the output of awk into an auc.bed file
-  "$1" > "$2".auc.bed
+  }' "$input_file" > "$output_prefix".auc.bed #Strem the output of awk into temporary .auc.bed file
   #Stream the output of cut into a .auc file
-  cut -f 4,7 "$2".auc.bed > "$2".auc
+  cut -f 4,7 "$output_prefix".auc.bed > "$output_prefix".auc
 }
 
 #Generate AUC for the sample
