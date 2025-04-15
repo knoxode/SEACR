@@ -51,7 +51,7 @@ if(is.null(argsL$exp) | is.null(argsL$ctrl) | is.null(argsL$output) | is.null(ar
 generate_threshold_plot <- function(datasource){
 
   #Gather data from input file
-  data<-read.table(argsL$datasource)
+  data<-read.table(datasource)
   datavec<-data$V1
   datamax<-data$V2
 
@@ -64,24 +64,33 @@ generate_threshold_plot <- function(datasource){
   dataframe<-dataframe[dataframe$diff > 0.9*max(dataframe$diff),]
   dataframe$dist<-apply(dataframe,1,function(x) dist2d(c(x[1],x[2]),0,1))
 
-  return(dataframe)
+  return(list(dataframe=dataframe, datavec=datavec, datamax=datamax))
 }
 
-expframe <- generate_threshold_plot("exp")
+exp <- generate_threshold_plot(argsL$exp)
+expframe <- exp$dataframe
+expvec <- exp$datavec
+expmax <- exp$datamax
 
 suppressWarnings(numtest<-as.numeric(argsL$ctrl))
 invis <- gc(verbose=FALSE)
 #If a control is provided (IgG), then read it, and create 
 if(!is.na(argsL$ctrl)){
-	if(argsL$norm=="yes"){  ## Calculate peaks of density plots to generate normalization factor
+  #Normalize the data
+	if(argsL$norm=="yes"){
 
-    ctrlframe <- generate_threshold_plot(ctrlvec)
-		
+    ctrl <- generate_threshold_plot(argsL$ctrl)
+    ctrlframe <- ctrl$dataframe
+    ctrlvec <- ctrl$datavec
+    ctrlmax <- ctrl$datamax
+
+    #If max dist in experiment is higher than ctrl, 		
     if(ctrlframe$value[ctrlframe$dist==max(ctrlframe$dist)][1] > sort(ctrlvec)[as.integer(0.9*length(ctrlvec))]){
 		  ctrlvalue<-ctrlframe$value[ctrlframe$dist==max(ctrlframe$dist)][1]
 		}else{
 		  ctrlvalue<-sort(ctrlvec)[as.integer(0.9*length(ctrlvec))] ## Added 7/15/19 to improve memory performance
 		}
+
 		if(expframe$value[expframe$dist==max(expframe$dist)][1] > sort(expvec)[as.integer(0.9*length(expvec))]){
 		  expvalue<-expframe$value[expframe$dist==max(expframe$dist)][1]
 		}else{

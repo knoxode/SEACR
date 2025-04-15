@@ -1,21 +1,26 @@
-# SEACR
-## SEACR: *S*parse *E*nrichment *A*nalysis for *C*UT&*R*UN
+## pySEACR
+## pySEACR: *S*parse *E*nrichment *A*nalysis for *C*UT&*R*UN (implemented in Python)
 
-SEACR is intended to call peaks and enriched regions from sparse CUT&RUN or chromatin profiling data in which background is dominated by "zeroes" (i.e. regions with no read coverage). It requires R (https://www.r-project.org) and Bedtools (https://bedtools.readthedocs.io/en/latest/) to be available in your path, and it requires bedgraphs from paired-end sequencing as input, which can be generated from *read pair* BED files (i.e. BED coordinates reflecting the 5' and 3' termini of each read pair) using bedtools genomecov with the "-bg" flag, or alternatively from name-sorted paired-end BAM files as described in "Preparing input bedgraph files" below. 
+To improve the performance of SEACR, in terms of computation time and memory use, I have implemented the core functionality of SEACR in python, and NumPy. To keep moving from the original to this project as simple as possible, the calls to the script are nearly identical.
 
-A description of the method can be found in the following manuscript, which we respectfully request that you cite if you find SEACR useful in your research:
+## Dependencies
+
+NumPy
+Python
+
+## SEACR - Core functionality and accreditation
+
+SEACR is intended to call peaks and enriched regions from sparse CUT&RUN or chromatin profiling data in which background is dominated by "zeroes" (i.e. regions with no read coverage). It requires R (https://www.r-project.org) and Bedtools (https://bedtools.readthedocs.io/en/latest/) to be available in your path, and it requires bedgraphs from paired-end sequencing as input, which can be generated from *read pair* BED files (i.e. BED coordinates reflecting the 6' and 3' termini of each read pair) using bedtools genomecov with the "-bg" flag, or alternatively from name-sorted paired-end BAM files as described in "Preparing input bedgraph files" below. 
+
+A description of the method can be found in the following manuscript, which we respectfully request that you cite if you find pySEACR useful in your research:
 
 Meers MP, Tenenbaum D, Henikoff S. (2019). Peak calling by Sparse Enrichment Analysis for CUT&RUN chromatin profiling. *Epigenetics and Chromatin* 12(1):42. 
 
 Direct link: https://doi.org/10.1186/s13072-019-0287-4
 
-## SEACR web server
-
-A web interface for SEACR analysis can be found at https://seacr.fredhutch.org
-
 ## Usage: 
 
-	bash SEACR_1.3.sh experimental bedgraph [control bedgraph | numeric threshold] ["norm" | "non"] ["relaxed" | "stringent"] output prefix
+	bash pySEACR.sh experimental bedgraph [control bedgraph | numeric threshold] ["norm" | "non"] ["relaxed" | "stringent"] output prefix
 
 ## Description of input fields:
 
@@ -63,11 +68,11 @@ Field 6: Region representing the farthest upstream and farthest downstream bases
 
 ## Examples:
 
-	bash SEACR_1.3.sh target.bedgraph IgG.bedgraph norm stringent output
+	bash pySEACR.sh target.bedgraph IgG.bedgraph norm stringent output
 Calls enriched regions in target data using normalized IgG control track with stringent threshold
 	
-	bash SEACR_1.3.sh target.bedgraph IgG.bedgraph non relaxed output
+	bash pySEACR.sh target.bedgraph IgG.bedgraph non relaxed output
 Calls enriched regions in target data using non-normalized IgG control track with relaxed threshold
 
-	bash SEACR_1.3.sh target.bedgraph 0.01 non stringent output
+	bash pySEACR.sh target.bedgraph 0.01 non stringent output
 Calls enriched regions in target data by selecting the top 1% of regions by AUC

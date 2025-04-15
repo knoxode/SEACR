@@ -168,7 +168,7 @@ generate_auc(){
               }
           }
       }
-  }' "$input_file" > "$output_prefix".auc.bed #Strem the output of awk into temporary .auc.bed file
+  }' "$input_file" > "$output_prefix".auc.bed #Stream the output of awk into temporary .auc.bed file
   #Stream the output of cut into a .auc file
   cut -f 4,7 "$output_prefix".auc.bed > "$output_prefix".auc
 }
@@ -185,7 +185,7 @@ then
 fi
 
 #TODO: Remove after testing
-path="dirname $0"
+path=$(dirname "$0");
 echo "$path"
 
 auc_compare(){
@@ -193,8 +193,6 @@ auc_compare(){
 }
 
 echo "Calculating optimal AUC threshold: $(date)"
-path="dirname $0"
-echo "$path"
 
 if [[ -f $2 ]] && [[ $norm == "norm" ]]
 then
