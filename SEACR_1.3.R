@@ -46,42 +46,36 @@ if(is.null(argsL$exp) | is.null(argsL$ctrl) | is.null(argsL$output) | is.null(ar
 }
 
 #Define functions here because it's cleaner
-dist2d<-function(a,b,c){
-		v1<- b - c; 
-    v2<- a - b; 
-    m<-cbind(v1,v2); 
-    d<-det(m)/sqrt(sum(v1*v1))
-}
 
-density_plot_peak_calc <- function(dataframe, vec){
-  dataframe<-data.frame(count=seq(1,0,length=length(vec)), quant=sort(vec,decreasing=TRUE)/max(vec), value=sort(vec,decreasing=TRUE))
-  dataframe$diff<-abs(dataframe$count-dataframe$quant)
-  dataframe<-expframe[dataframe$diff > 0.9*max(dataframe$diff),]
+#Generates the fraction above threshold plot
+generate_threshold_plot <- function(datasource){
+
+  #Gather data from input file
+  data<-read.table(argsL$datasource)
+  datavec<-data$V1
+  datamax<-data$V2
+
+  dist2d<-function(a,b,c){v1<- b - c; v2<- a - b; m<-cbind(v1,v2); d<-det(m)/sqrt(sum(v1*v1))}
+
+  #Transform data into a 0 to 1 number space.
+  dataframe<-data.frame(count=seq(1,0,length=length(datavec)), quant=sort(datavec,decreasing=TRUE)/max(datavec), value=sort(datavec,decreasing=TRUE))
+
+  dataframe$diff<-abs(dataframe$count - dataframe$quant)
+  dataframe<-dataframe[dataframe$diff > 0.9*max(dataframe$diff),]
   dataframe$dist<-apply(dataframe,1,function(x) dist2d(c(x[1],x[2]),0,1))
+
+  return(dataframe)
 }
 
-exp<-read.table(argsL$exp)
-expvec<-exp$V1
-expmax<-exp$V2
-rm(exp)
+expframe <- generate_threshold_plot("exp")
 
 suppressWarnings(numtest<-as.numeric(argsL$ctrl))
 invis <- gc(verbose=FALSE)
-
-
 #If a control is provided (IgG), then read it, and create 
 if(!is.na(argsL$ctrl)){
-	ctrl<-read.table(argsL$ctrl)
-	ctrlvec<-ctrl$V1
-	ctrlmax<-ctrl$V2
-	rm(ctrl)
-	invis <- gc(verbose=FALSE)
-
 	if(argsL$norm=="yes"){  ## Calculate peaks of density plots to generate normalization factor
 
-    density_plot_peak_calc(expframe, expvec)
-    density_plot_peak_calc(ctrlframe, ctrlvec)
-
+    ctrlframe <- generate_threshold_plot(ctrlvec)
 		
     if(ctrlframe$value[ctrlframe$dist==max(ctrlframe$dist)][1] > sort(ctrlvec)[as.integer(0.9*length(ctrlvec))]){
 		  ctrlvalue<-ctrlframe$value[ctrlframe$dist==max(ctrlframe$dist)][1]
@@ -117,6 +111,10 @@ if(!is.na(argsL$ctrl)){
 	}else{  ## Added 7/15/19 to avoid omitting z when x0==z2
 		z0<-x0  ## Added 7/15/19 to avoid omitting z when x0==z2
 	}  ## Added 7/15/19 to avoid omitting z when x0==z2
+
+
+
+
 
 
 
