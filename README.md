@@ -1,14 +1,14 @@
 ## pySEACR
 ## pySEACR: *S*parse *E*nrichment *A*nalysis for *C*UT&*R*UN (implemented in Python)
 
-To improve the performance of SEACR, in terms of computation time and memory use, I have implemented the core functionality of SEACR in python, and NumPy. To keep moving from the original to this project as simple as possible, the calls to the script are nearly identical.
+To improve the performance of SEACR, in terms of computation time and memory use, I have implemented the core functionality of SEACR in python, NumPy, SciPy and StatsTools. To keep moving from the original to this project as simple as possible, the calls to the script are nearly identical.
 
 ## Dependencies
 
 NumPy
 Python
 
-## SEACR - Core functionality and accreditation
+## SEACR - Core functionality and original author accreditation
 
 SEACR is intended to call peaks and enriched regions from sparse CUT&RUN or chromatin profiling data in which background is dominated by "zeroes" (i.e. regions with no read coverage). It requires R (https://www.r-project.org) and Bedtools (https://bedtools.readthedocs.io/en/latest/) to be available in your path, and it requires bedgraphs from paired-end sequencing as input, which can be generated from *read pair* BED files (i.e. BED coordinates reflecting the 6' and 3' termini of each read pair) using bedtools genomecov with the "-bg" flag, or alternatively from name-sorted paired-end BAM files as described in "Preparing input bedgraph files" below. 
 
@@ -76,3 +76,7 @@ Calls enriched regions in target data using non-normalized IgG control track wit
 
 	bash pySEACR.sh target.bedgraph 0.01 non stringent output
 Calls enriched regions in target data by selecting the top 1% of regions by AUC
+
+## Credits to projects:
+
+

@@ -23,27 +23,13 @@ args = parser.parse_args()
 ########################
 
 def dist2d(x, y, x0=0, y0=0):
-    """Perpendicular distance from point (x, y) to the line through (x0, y0) and (1,1)."""
-    # Line vector from (x0, y0) to (1,1)
-    dx = 1 - x0
-    dy = 1 - y0
-    # Normalized direction vector
+    dx, dy = 1 - x0, 1 - y0
     mag = np.hypot(dx, dy)
-    dx /= mag
-    dy /= mag
-
-    # Vector from line start to point
-    px = x - x0
-    py = y - y0
-
-    # Project point vector onto line vector
+    dx, dy = dx / mag, dy / mag
+    px, py = x - x0, y - y0
     proj = px * dx + py * dy
-
-    # Closest point on the line
     closest_x = x0 + proj * dx
     closest_y = y0 + proj * dy
-
-    # Distance from point to closest point
     return np.hypot(x - closest_x, y - closest_y)
 
 def pctremain(x, exp_auc, both_auc):
@@ -106,6 +92,9 @@ def cutoff_selection(exp_aucs, ctrl_aucs):
 
     return x0, z0, fdr_x0, fdr_z0
 
+def fast_ecdf(x, sorted_vals):
+    return np.searchsorted(sorted_vals, x, side="right") / len(sorted_vals)
+
 def load_raw_arrays(exp_array, ctrl_array):
     #Load in data into a numpy array.
     raw_exp = np.loadtxt(exp_array, delimiter="\t", dtype=[('auc', np.float32), ('length', np.uint32)])
@@ -115,8 +104,6 @@ def load_raw_arrays(exp_array, ctrl_array):
     ctrl_data = np.column_stack((raw_ctrl['auc'], raw_ctrl['length'].astype(np.uint32)))
     return exp_data, ctrl_data
 
-
-
 ########################################################################################################################
 
 
@@ -125,47 +112,41 @@ def load_raw_arrays(exp_array, ctrl_array):
 ########################
 
 def empirical_thresholding(exp, ctrl, norm):
-    start_time = time.time()
-    #Load in data as arrays
+    
+    # Load in data as arrays
     exp_data, ctrl_data = load_raw_arrays(exp, ctrl)
 
-    if (norm == True):
+    if norm:
+        start_time = time.time()
         def base_function(data):
-            sorted_input  = data[data[:, 0].argsort()] 
-            sorted_aucs = sorted_input[:,0]
-            sorted_lengths = sorted_input[:,1]
+            # Sort input once
+            sorted_input = data[data[:, 0].argsort()]
+            sorted_aucs = sorted_input[:, 0]
+            sorted_lengths = sorted_input[:, 1]
+            
+            # Calculate scaled AUCs and diff in one step
+            scaled_aucs = sorted_aucs / np.max(sorted_aucs)
             line = np.linspace(1, 0, len(sorted_aucs))
-            scaled_aucs = sorted_aucs/np.max(sorted_aucs)
             diff = line - scaled_aucs
             max_diff = np.max(diff)
 
-            full_array = np.column_stack((sorted_aucs, sorted_lengths,  scaled_aucs, line, diff))
+            full_array = np.column_stack((sorted_aucs, sorted_lengths, scaled_aucs, line, diff))
             top_auc_array = full_array[full_array[:, 4] > 0.9 * max_diff]
 
-            # Initialize an empty array to store distances
-            distances = np.zeros(top_auc_array.shape[0])
-            # Calculate distance for each row
-            for i in range(top_auc_array.shape[0]):
-                distances[i] = dist2d(top_auc_array[i, 3], top_auc_array[i, 2])
-            # Add the 'dist' column to final array
-            final_array = np.column_stack((top_auc_array, distances))
+            # Use vectorized operations to calculate distances
+            distances = np.hypot(top_auc_array[:, 3] - top_auc_array[:, 2], top_auc_array[:, 0] - top_auc_array[:, 1])
 
-            # Show the result
+            final_array = np.column_stack((top_auc_array, distances))
             return full_array, final_array
 
         def dist_threshold(array, cut_array):
             max_dist_idx = np.argmax(cut_array[:, 5])
-            auc_at_max_dist = cut_array[max_dist_idx,1]
+            auc_at_max_dist = cut_array[max_dist_idx, 1]
             ninetieth_pct_idx = np.percentile(array[:, 0], 90) 
 
-            if(auc_at_max_dist > ninetieth_pct_idx):
-                value = auc_at_max_dist
-                return value
-            else:
-                value = ninetieth_pct_idx
-                return value
+            return auc_at_max_dist if auc_at_max_dist > ninetieth_pct_idx else ninetieth_pct_idx
         
-
+        # Base function and distance threshold for exp and ctrl
         exp_non_cut_arr, exp_thresh_arr = base_function(exp_data)
         ctrl_non_cut_arr, ctrl_thresh_arr = base_function(ctrl_data)
         
@@ -173,53 +154,48 @@ def empirical_thresholding(exp, ctrl, norm):
         ctrl_threshold_raw = dist_threshold(ctrl_non_cut_arr, ctrl_thresh_arr)
 
         def scale_ctrl_to_exp(array, threshold):
-            #Filter values falling below the threshold
+            # Filter values falling below the threshold
             subset = array[array <= threshold]
-
             if len(subset) < 2:
                 raise ValueError("Not enough values under the threshold to estimate density")
 
             kde = gaussian_kde(subset, bw_method='silverman')
-            xs = np.linspace(np.min(subset), np.max(subset), 1000)
+            xs = np.linspace(np.min(subset), np.max(subset), 500)
             ys = kde(xs)
 
-            return  xs[np.argmax(ys)]
+            return xs[np.argmax(ys)]
         
-        exp_mode = scale_ctrl_to_exp(exp_non_cut_arr[:,0], exp_threshold_raw)
-        ctrl_mode = scale_ctrl_to_exp(ctrl_non_cut_arr[:,0], ctrl_threshold_raw)
+        # Scale and calculate thresholds
+        exp_mode = scale_ctrl_to_exp(exp_non_cut_arr[:, 0], exp_threshold_raw)
+        ctrl_mode = scale_ctrl_to_exp(ctrl_non_cut_arr[:, 0], ctrl_threshold_raw)
         scaling_const = exp_mode / ctrl_mode
-        ctrl_non_cut_arr[:,0] *= scaling_const
-        #Calls global function "cutoff_selection"
+        ctrl_non_cut_arr[:, 0] *= scaling_const
+        
         final_cutoff_exp, final_cutoff_ctrl, final_fdr_exp, final_fdr_ctrl = cutoff_selection(exp_non_cut_arr[:, 0], ctrl_non_cut_arr[:, 0])
-        threshold = tuple((final_cutoff_exp, final_cutoff_ctrl))
-        fdr = tuple((final_fdr_exp, final_fdr_ctrl))
+        threshold = (final_cutoff_exp, final_cutoff_ctrl)
+        fdr = (final_fdr_exp, final_fdr_ctrl)
 
         end_time = time.time()
-
         elapsed_time = end_time - start_time
         print(f"Elapsed time: {elapsed_time} seconds")
 
+
         return threshold, fdr, scaling_const
 
-
-    elif (norm == False):
-        exp_data, ctrl_data = load_raw_arrays(exp, ctrl)
-        final_cutoff_exp, final_cutoff_ctrl, final_fdr_exp, final_fdr_ctrl = cutoff_selection(exp_data[:, 0], ctrl_data[:, 0])
-        threshold = tuple((final_cutoff_exp, final_cutoff_ctrl))
-        fdr = tuple((final_fdr_exp, final_fdr_ctrl))
-        return threshold, fdr
-
-
     else:
-        print("Normalization parameter has not been set to either \"Yes\" or \"No\". Please set this correctly, and try again.")
-
-
+        start_time = time.time()
+        final_cutoff_exp, final_cutoff_ctrl, final_fdr_exp, final_fdr_ctrl = cutoff_selection(exp_data[:, 0], ctrl_data[:, 0])
+        threshold = (final_cutoff_exp, final_cutoff_ctrl)
+        fdr = (final_fdr_exp, final_fdr_ctrl)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Elapsed time: {elapsed_time} seconds")
+        return threshold, fdr
 
 #TODO: Complete
 def percentile_thresholding(exp, ctrl):
     threshold = "PLACEHOLDER"
     fdr = "PLACEHOLDER"
-    write_output(fdr, threshold)
 
 
 def threshold_calc(exp, ctrl, mode, normalize):
@@ -272,7 +248,7 @@ def write_output(output_prefix, cutoffs, fdrs, norm_type, norm_val=None):
         rcutoffs = tuple(round(i, 4) for i in cutoffs)
         #Threshold file
         with open(f"{output_prefix}.threshold.txt", "w") as f:
-            f.write(f"{rcutoffs[0]}\n{rcutoffs[1]}\n{norm_val}\n")
+            f.write(f"{rcutoffs[0]}\n{rcutoffs[1]}\n{norm_type}\n")
         #FDR file
         with open(f"{output_prefix}.fdr.txt", "w") as f:
             f.write(f"{fdrs[0]}\n{fdrs[1]}\n")
@@ -284,7 +260,7 @@ def write_output(output_prefix, cutoffs, fdrs, norm_type, norm_val=None):
         rcutoffs = tuple(round(i, 4) for i in cutoffs)
         #Threshold file
         with open(f"{output_prefix}.threshold.txt", "w") as f:
-            f.write(f"{rcutoffs[0]}\n{rcutoffs[1]}\n{norm}\n")
+            f.write(f"{rcutoffs[0]}\n{rcutoffs[1]}\n{norm_type}\n")
         #FDR file
         with open(f"{output_prefix}.fdr.txt", "w") as f:
             f.write(f"{fdrs[0]}\n{fdrs[1]}\n")
@@ -297,7 +273,7 @@ def main():
         threshold,fdr,norm_type, norm_val = threshold_calc(args.exp, args.ctrl, ctrl_status, args.norm)
         write_output(args.output,threshold, fdr, norm_type, norm_val)
     if args.norm == "no":
-        threshold,fdr = threshold_calc(args.exp, args.ctrl, ctrl_status, args.norm)
+        threshold,fdr, norm_type = threshold_calc(args.exp, args.ctrl, ctrl_status, args.norm)
         write_output(args.output, threshold, fdr, norm_type)
 
 

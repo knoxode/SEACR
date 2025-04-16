@@ -83,8 +83,9 @@ if(is.na(numtest)){ ## If 2nd field is a bedgraph, calculate empirical threshold
 		exptest<-density(expvec[expvec <= expvalue]) ## New for SEACR_1.1
 		constant<-(exptest$x[exptest$y==max(exptest$y)])/(ctrltest$x[ctrltest$y==max(ctrltest$y)])
 		ctrlvec<-ctrlvec*constant
-    end_time_norm <- Sys.time()
-	} ## Calculate total signal and max signal thresholds
+	}
+  start_time_non_norm <- Sys.time()
+  ## Calculate total signal and max signal thresholds
 	both<-c(expvec,ctrlvec)
 	pctremain<-function(x) (length(expvec)-(ecdf(expvec)(x)*length(expvec)))/(length(both)-(ecdf(both)(x)*length(both)))
 	x<-sort(unique(both)) ## New for SEACR_1.1
@@ -134,6 +135,8 @@ if(is.na(numtest)){ ## If 2nd field is a bedgraph, calculate empirical threshold
 	}
 	invis <- gc(verbose=FALSE)
 	fdr<-c(1-pctremain(x0[1]), 1-pctremain(z0[1])) ## New for SEACR_1.1
+  end_time_non_norm <- Sys.time()
+  end_time_norm <- Sys.time()
 }else{ ## If 2nd field is numeric, calculate percentile threshold
 #	print("Ctrl is numeric")
 	test<-ecdf(expvec)(expvec)
@@ -157,5 +160,7 @@ invis <- gc(verbose=FALSE)
 write.table(fdr, file=paste(argsL$output, ".fdr.txt", sep=""), sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE) #Added 5/15/19 to report empirical FDR for threshold detection
 
 
-elapsed_time_norm <- end_time_norm - start_time_norm
-write(paste("Elapsed time for normalization:", elapsed_time_norm), file = paste(argsL$output, ".time_log.txt", sep=""), append = TRUE)
+# elapsed_time_norm <- end_time_norm - start_time_norm
+elapsed_time_non_norm <- end_time_non_norm - start_time_non_norm
+# write(paste("Elapsed time for normalization:", elapsed_time_norm), file = paste(argsL$output, ".time_log.txt", sep=""), append = TRUE)
+write(paste("Elapsed time for no normalization:", elapsed_time_non_norm), file = paste(argsL$output, ".time_log.txt", sep=""), append = TRUE)
