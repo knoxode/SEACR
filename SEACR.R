@@ -30,7 +30,8 @@ argsL <- as.list(as.character(argsDF$V2))
 names(argsL) <- argsDF$V1
 invis <- gc(verbose=FALSE) 
 
-##If arguments are missing, stop execution and warn user, then exit.
+## Arg1 default
+#if(is.null(args[1])){
 if(is.null(argsL$exp) | is.null(argsL$ctrl) | is.null(argsL$output) | is.null(argsL$norm)) {
   stop("Argument is missing!
      Calculate area under the curve threshold for CUT&RUN peaks 
@@ -44,72 +45,48 @@ if(is.null(argsL$exp) | is.null(argsL$ctrl) | is.null(argsL$output) | is.null(ar
  
   q(save="no")
 }
-
-#Define functions here because it's cleaner
-
-#Generates the fraction above threshold plot
-generate_threshold_plot <- function(datasource){
-
-  #Gather data from input file
-  data<-read.table(datasource)
-  datavec<-data$V1
-  datamax<-data$V2
-
-  dist2d<-function(a,b,c){v1<- b - c; v2<- a - b; m<-cbind(v1,v2); d<-det(m)/sqrt(sum(v1*v1))}
-
-  #Transform data into a 0 to 1 number space.
-  dataframe<-data.frame(count=seq(1,0,length=length(datavec)), quant=sort(datavec,decreasing=TRUE)/max(datavec), value=sort(datavec,decreasing=TRUE))
-
-  dataframe$diff<-abs(dataframe$count - dataframe$quant)
-  dataframe<-dataframe[dataframe$diff > 0.9*max(dataframe$diff),]
-  dataframe$dist<-apply(dataframe,1,function(x) dist2d(c(x[1],x[2]),0,1))
-
-  return(list(dataframe=dataframe, datavec=datavec, datamax=datamax))
-}
-
-exp <- generate_threshold_plot(argsL$exp)
-expframe <- exp$dataframe
-expvec <- exp$datavec
-expmax <- exp$datamax
-
+exp<-read.table(argsL$exp)
+expvec<-exp$V1
+expmax<-exp$V2
+rm(exp)
 suppressWarnings(numtest<-as.numeric(argsL$ctrl))
 invis <- gc(verbose=FALSE)
-#If a control is provided (IgG), then read it, and create 
-if(!is.na(argsL$ctrl)){
-  #Normalize the data
-	if(argsL$norm=="yes"){
-
-    ctrl <- generate_threshold_plot(argsL$ctrl)
-    ctrlframe <- ctrl$dataframe
-    ctrlvec <- ctrl$datavec
-    ctrlmax <- ctrl$datamax
-
-    #If max dist in experiment is higher than ctrl, 		
-    if(ctrlframe$value[ctrlframe$dist==max(ctrlframe$dist)][1] > sort(ctrlvec)[as.integer(0.9*length(ctrlvec))]){
+if(is.na(numtest)){ ## If 2nd field is a bedgraph, calculate empirical threshold
+#	print("Ctrl is a file")
+	ctrl<-read.table(argsL$ctrl)
+	ctrlvec<-ctrl$V1
+	ctrlmax<-ctrl$V2
+	rm(ctrl)
+	invis <- gc(verbose=FALSE)
+	if(argsL$norm=="yes"){  ## Calculate peaks of density plots to generate normalization factor
+    start_time_norm <- Sys.time()
+		dist2d<-function(a,b,c){v1<- b - c; v2<- a - b; m<-cbind(v1,v2); d<-det(m)/sqrt(sum(v1*v1))}
+		expframe<-data.frame(count=seq(1,0,length=length(expvec)), quant=sort(expvec,decreasing=TRUE)/max(expvec), value=sort(expvec,decreasing=TRUE))
+		expframe$diff<-abs(expframe$count-expframe$quant)
+		expframe<-expframe[expframe$diff > 0.9*max(expframe$diff),]
+		expframe$dist<-apply(expframe,1,function(x) dist2d(c(x[1],x[2]),0,1))
+		ctrlframe<-data.frame(count=seq(1,0,length=length(ctrlvec)), quant=sort(ctrlvec,decreasing=TRUE)/max(ctrlvec), value=sort(ctrlvec,decreasing=TRUE))
+		ctrlframe$diff<-abs(ctrlframe$count-ctrlframe$quant)
+		ctrlframe<-ctrlframe[ctrlframe$diff > 0.9*max(ctrlframe$diff),]
+		ctrlframe$dist<-apply(ctrlframe,1,function(x) dist2d(c(x[1],x[2]),0,1))
+		if(ctrlframe$value[ctrlframe$dist==max(ctrlframe$dist)][1] > sort(ctrlvec)[as.integer(0.9*length(ctrlvec))]){
 		  ctrlvalue<-ctrlframe$value[ctrlframe$dist==max(ctrlframe$dist)][1]
 		}else{
 		  ctrlvalue<-sort(ctrlvec)[as.integer(0.9*length(ctrlvec))] ## Added 7/15/19 to improve memory performance
 		}
-
 		if(expframe$value[expframe$dist==max(expframe$dist)][1] > sort(expvec)[as.integer(0.9*length(expvec))]){
 		  expvalue<-expframe$value[expframe$dist==max(expframe$dist)][1]
 		}else{
 		  expvalue<-sort(expvec)[as.integer(0.9*length(expvec))] ## Added 7/15/19 to improve memory performance
 		}
-
 		ctrltest<-density(ctrlvec[ctrlvec <= ctrlvalue]) ## New for SEACR_1.1
 		exptest<-density(expvec[expvec <= expvalue]) ## New for SEACR_1.1
 		constant<-(exptest$x[exptest$y==max(exptest$y)])/(ctrltest$x[ctrltest$y==max(ctrltest$y)])
 		ctrlvec<-ctrlvec*constant
-	} 
-
-
-  ## Calculate total signal and max signal thresholds
-
+    end_time_norm <- Sys.time()
+	} ## Calculate total signal and max signal thresholds
 	both<-c(expvec,ctrlvec)
-	pctremain<-function(x) (length(expvec)-(ecdf(expvec)(x)*length(expvec)))/
-                         (length(both)-(ecdf(both)(x)*length(both)))
-
+	pctremain<-function(x) (length(expvec)-(ecdf(expvec)(x)*length(expvec)))/(length(both)-(ecdf(both)(x)*length(both)))
 	x<-sort(unique(both)) ## New for SEACR_1.1
 	x0<-x[which(na.omit(pctremain(x[pctremain(x) < 1])) == max(na.omit(pctremain(x[pctremain(x) < 1]))))]  ## New for SEACR_1.1
 	z<-x[x <= x0[1]]	## New for SEACR_1.1
@@ -120,13 +97,6 @@ if(!is.na(argsL$ctrl)){
 	}else{  ## Added 7/15/19 to avoid omitting z when x0==z2
 		z0<-x0  ## Added 7/15/19 to avoid omitting z when x0==z2
 	}  ## Added 7/15/19 to avoid omitting z when x0==z2
-
-
-
-
-
-
-
 	
 	## The following code segment was added to avoid spurious high thresholding when the peak of a lower threshold is within 95% of the peak of the maximum threshold
 	
@@ -140,14 +110,10 @@ if(!is.na(argsL$ctrl)){
 #		print(output)
 		i<-i+1
 	}
-
-
 	a<-frame$thresh[frame$diff != 0 & frame$diff < quantile(frame$diff, test3)]
 	a0<-a[which(na.omit(pctremain(a[pctremain(a) < 1])) == max(na.omit(pctremain(a[pctremain(a) <  1]))))]
 	b<-a[a <= a0[1]]
 	b2<-b[abs(((pctremain(a0)+min(pctremain(b)))/2)-pctremain(b))==min(abs(((pctremain(a0)+min(pctremain(b)))/2)-pctremain(b)))]
-
-
 	if(a0[1]!=b2[1]){  ## Added 7/15/19 to avoid omitting b when a0==b2
 		b<-b[b > b2[1]]
 		b0<-b[abs(b-(max(b)-((1/2)*(max(b)-min(b)))))==min(abs(b-(max(b)-((1/2)*(max(b)-min(b))))))]
@@ -158,13 +124,9 @@ if(!is.na(argsL$ctrl)){
 		x0<-a0
 		z0<-b0
 	}
-
-
 	both2<-c(expmax,ctrlmax)
 	d<-sort(unique(both2))
 	pctremain2<-function(x) 1-(ecdf(expmax)(x)-ecdf(ctrlmax)(x))
-
-
 	if(length(d[pctremain2(d) > 1]) > 0){
 		d0<-min(d[pctremain2(d) > 1])
 	}else{
@@ -185,11 +147,15 @@ if(!is.na(argsL$ctrl)){
 	fdr<-ctrl[1] ## New for SEACR_1.1
 }
 
+print(z0)
 invis <- gc(verbose=FALSE)
 write.table(c(x0[1],z0[1],d0[1]), file=paste(argsL$output, ".threshold.txt", sep=""), sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE)
 if(argsL$norm=="yes"){
 	write.table(constant, file=paste(argsL$output, ".norm.txt", sep=""), sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE) #Added 7/19/18 to ensure norm value is multiplied by ctrl
 }
-
 invis <- gc(verbose=FALSE)
 write.table(fdr, file=paste(argsL$output, ".fdr.txt", sep=""), sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE) #Added 5/15/19 to report empirical FDR for threshold detection
+
+
+elapsed_time_norm <- end_time_norm - start_time_norm
+write(paste("Elapsed time for normalization:", elapsed_time_norm), file = paste(argsL$output, ".time_log.txt", sep=""), append = TRUE)

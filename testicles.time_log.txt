@@ -1,0 +1,2 @@
+Elapsed time for normalization: 0.281651496887207
+Elapsed time for normalization: 0.31551718711853

@@ -11,6 +11,9 @@
       buildInputs = with pkgs; [
         python311
         python311Packages.numpy
+        python311Packages.scipy
+        python311Packages.statsmodels
+        R
       ];
     };
   };
